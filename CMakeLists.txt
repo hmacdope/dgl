@@ -44,6 +44,9 @@ if (NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb")
 endif(NOT MSVC)
 
+
+message(STATUS "Force not to use vendored third party libraries? ${FORCE_NO_VENDOR_THIRD_PARTY}")
+
 if(USE_CUDA)
   message(STATUS "Build with CUDA support")
   project(dgl C CXX)
@@ -332,6 +335,10 @@ if(BUILD_TORCH)
   endif(MSVC)
   add_dependencies(dgl tensoradapter_pytorch)
 endif(BUILD_TORCH)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
+
 
 # Installation rules
 install(TARGETS dgl DESTINATION lib${LIB_SUFFIX})
