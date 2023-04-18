@@ -37,7 +37,8 @@ dgl_option(USE_HDFS "Build with HDFS support" OFF) # Set env HADOOP_HDFS_HOME if
 dgl_option(REBUILD_LIBXSMM "Clean LIBXSMM build cache at every build" OFF) # Set env HADOOP_HDFS_HOME if needed
 dgl_option(USE_EPOLL "Build with epoll for socket communicator" OFF)
 dgl_option(TP_BUILD_LIBUV "Build libuv together with tensorpipe (only impacts Linux)" ON)
-dgl_option(FORCE_NO_VENDOR_THIRD_PARTY "Force not to use third party libraries" OFF)
+dgl_option(FORCE_NO_VENDOR_THIRD_PARTY "Force build not to use vendored third party libraries, designed for use with building off conda dependencies" OFF)
+
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
 if (NOT MSVC)
@@ -251,22 +252,41 @@ else()
   endif()
 
   if(BUILD_CPP_TEST)
-    message(FATAL_ERROR "Cannot build tests vendoring third party libs")
+    message(FATAL_ERROR "Cannot build tests without vendoring third party libs")
+  endif()
+
+  if(USE_HDFS)
+    message(FATAL_ERROR "Cannot use HDFS without vendoring third party libs")
   endif()
   
 
   # add conda include dir to search path
   message(STATUS "Using Conda environment: $ENV{CONDA_PREFIX}")
   target_include_directories(dgl PRIVATE $ENV{CONDA_PREFIX}/include)
+  # this seems to take care of the below libraries
+
+  #target_include_directories(dgl PRIVATE "third_party/phmap/")
+  #target_include_directories(dgl PRIVATE "third_party/dlpack/include")
+  #target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+
+
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+
+  find_package(Metis REQUIRED)
+  if (NOT METIS_FOUND)
+    message(FATAL_ERROR "Metis not found")
+  else()
+    message("Metis found with include path: ${METIS_INCLUDE_DIRS} and library path: ${METIS_LIBRARIES}")  
+  endif()
+  target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
+  target_link_libraries(dgl ${METIS_LIBRARY})
+
 
 
   target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
-  target_include_directories(dgl PRIVATE "third_party/phmap/")
   target_include_directories(dgl PRIVATE "third_party/xbyak/")
-  target_include_directories(dgl PRIVATE "third_party/METIS/include/")
   target_include_directories(dgl PRIVATE "tensoradapter/include")
-  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
-  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+  # target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
 
 endif()
 
@@ -305,6 +325,7 @@ if((NOT MSVC) AND USE_LIBXSMM)
 endif((NOT MSVC) AND USE_LIBXSMM)
 
 if(NOT MSVC)
+  if ()
   # Only build tensorpipe on linux
   string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
