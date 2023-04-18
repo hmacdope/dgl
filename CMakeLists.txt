@@ -51,27 +51,19 @@ if(USE_CUDA)
   message(STATUS "Build with CUDA support")
   project(dgl C CXX)
   include(cmake/modules/CUDA.cmake)
-  if ((CUDA_VERSION_MAJOR LESS 11) OR
-      ((CUDA_VERSION_MAJOR EQUAL 11) AND (CUDA_VERSION_MINOR EQUAL 0)))
-    # For cuda<11, use external CUB/Thrust library because CUB is not part of CUDA.
-    # For cuda==11.0, use external CUB/Thrust library because there is a bug in the
-    #   official CUB library which causes invalid device ordinal error for DGL. The bug
-    #   is fixed by https://github.com/NVIDIA/cub/commit/9143e47e048641aa0e6ddfd645bcd54ff1059939
-    #   in 11.1.
-    message(STATUS "Detected CUDA of version ${CUDA_VERSION}. Use external CUB/Thrust library.")
+
+  message(STATUS "Detected CUDA of version ${CUDA_VERSION}. Use external CUB/Thrust library.")
     
-    if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
-      cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
-      cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust/dependencies/cub")
-    else()
-      find_package(Thrust REQUIRED CONFIG)
-      if (NOT THRUST_FOUND)
-        message(FATAL_ERROR "Thrust not found")
-      endif()
-      message(STATUS "Found Thrust ${THRUST_VERSION} with include directory ${_THRUST_INCLUDE_DIR}" )
-      cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}")
-      cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}/third_party/thrust/dependencies/cub")   
+  if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
+    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
+    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust/dependencies/cub")
+  else()
+    find_package(Thrust REQUIRED CONFIG)
+    if (NOT THRUST_FOUND)
+      message(FATAL_ERROR "Thrust not found")
     endif()
+    message(STATUS "Found Thrust ${THRUST_VERSION} with include directory ${_THRUST_INCLUDE_DIR}" )
+    cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}")
   endif()
 endif(USE_CUDA)
 
@@ -221,16 +213,62 @@ endif(USE_CUDA)
 
 set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
 
+
+
+# Define a macro to simplify the process of finding an include file
+macro(FIND_CONDA_INCLUDE_FILE variable_name header_name conda_hint_path)
+    find_path(${variable_name}
+        NAMES ${header_name}
+        HINTS $ENV{CONDA_PREFIX}/${conda_hint_path}
+    )
+endmacro()
+
+
 # include directories
 target_include_directories(dgl PRIVATE "include")
-target_include_directories(dgl PRIVATE "third_party/dlpack/include")
-target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
-target_include_directories(dgl PRIVATE "third_party/phmap/")
-target_include_directories(dgl PRIVATE "third_party/xbyak/")
-target_include_directories(dgl PRIVATE "third_party/METIS/include/")
-target_include_directories(dgl PRIVATE "tensoradapter/include")
-target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
-target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+
+if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
+  target_include_directories(dgl PRIVATE "third_party/dlpack/include")
+  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
+  target_include_directories(dgl PRIVATE "third_party/phmap/")
+  target_include_directories(dgl PRIVATE "third_party/xbyak/")
+  target_include_directories(dgl PRIVATE "third_party/METIS/include/")
+  target_include_directories(dgl PRIVATE "tensoradapter/include")
+  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+else()
+
+  if(USE_LIBXSMM)
+    message(FATAL_ERROR "Cannot use libxsmm without vendoring third party libs")
+  endif()
+
+  if(USE_TVM)
+    message(FATAL_ERROR "Cannot use TVM without vendoring third party libs")
+  endif()
+
+  if(USE_TVM)
+    message(FATAL_ERROR "Cannot use TVM without vendoring third party libs")
+  endif()
+
+  if(BUILD_CPP_TEST)
+    message(FATAL_ERROR "Cannot build tests vendoring third party libs")
+  endif()
+  
+
+  # add conda include dir to search path
+  message(STATUS "Using Conda environment: $ENV{CONDA_PREFIX}")
+  target_include_directories(dgl PRIVATE $ENV{CONDA_PREFIX}/include)
+
+
+  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
+  target_include_directories(dgl PRIVATE "third_party/phmap/")
+  target_include_directories(dgl PRIVATE "third_party/xbyak/")
+  target_include_directories(dgl PRIVATE "third_party/METIS/include/")
+  target_include_directories(dgl PRIVATE "tensoradapter/include")
+  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+
+endif()
 
 
 # For serialization
