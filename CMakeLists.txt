@@ -37,6 +37,7 @@ dgl_option(USE_HDFS "Build with HDFS support" OFF) # Set env HADOOP_HDFS_HOME if
 dgl_option(REBUILD_LIBXSMM "Clean LIBXSMM build cache at every build" OFF) # Set env HADOOP_HDFS_HOME if needed
 dgl_option(USE_EPOLL "Build with epoll for socket communicator" OFF)
 dgl_option(TP_BUILD_LIBUV "Build libuv together with tensorpipe (only impacts Linux)" ON)
+dgl_option(FORCE_NO_VENDOR_THIRD_PARTY "Force not to use third party libraries" OFF)
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
 if (NOT MSVC)
@@ -55,8 +56,19 @@ if(USE_CUDA)
     #   is fixed by https://github.com/NVIDIA/cub/commit/9143e47e048641aa0e6ddfd645bcd54ff1059939
     #   in 11.1.
     message(STATUS "Detected CUDA of version ${CUDA_VERSION}. Use external CUB/Thrust library.")
-    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
-    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/cub")
+    
+    if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
+      cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
+      cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust/dependencies/cub")
+    else()
+      find_package(Thrust REQUIRED CONFIG)
+      if (NOT THRUST_FOUND)
+        message(FATAL_ERROR "Thrust not found")
+      endif()
+      message(STATUS "Found Thrust ${THRUST_VERSION} with include directory ${_THRUST_INCLUDE_DIR}" )
+      cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}")
+      cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}/third_party/thrust/dependencies/cub")   
+    endif()
   endif()
 endif(USE_CUDA)
 
@@ -254,6 +266,7 @@ endif((NOT MSVC) AND USE_LIBXSMM)
 if(NOT MSVC)
   # Only build tensorpipe on linux
   string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
   set(TP_STATIC_OR_SHARED STATIC)
   add_subdirectory(third_party/tensorpipe)
   list(APPEND DGL_LINKER_LIBS tensorpipe)
