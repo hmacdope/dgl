@@ -37,16 +37,21 @@ dgl_option(USE_HDFS "Build with HDFS support" OFF) # Set env HADOOP_HDFS_HOME if
 dgl_option(REBUILD_LIBXSMM "Clean LIBXSMM build cache at every build" OFF) # Set env HADOOP_HDFS_HOME if needed
 dgl_option(USE_EPOLL "Build with epoll for socket communicator" OFF)
 dgl_option(TP_BUILD_LIBUV "Build libuv together with tensorpipe (only impacts Linux)" ON)
-dgl_option(FORCE_NO_VENDOR_THIRD_PARTY "Force build not to use vendored third party libraries, designed for use with building off conda dependencies" OFF)
+dgl_option(USE_ALL_EXTERNAL_LIBS "Force to use external third party libraries rather than those vendored in ./third_party" OFF)
+dgl_option(USE_CONDA_INCLUDE, "Add conda include path to include directories" OFF)
+
+
+if(USE_ALL_EXTERNAL_LIBS)
+  message(STATUS "Use all external libraries")
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
 if (NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb")
 endif(NOT MSVC)
-
-
-message(STATUS "Force not to use vendored third party libraries? ${FORCE_NO_VENDOR_THIRD_PARTY}")
 
 if(USE_CUDA)
   message(STATUS "Build with CUDA support")
@@ -55,16 +60,16 @@ if(USE_CUDA)
 
   message(STATUS "Detected CUDA of version ${CUDA_VERSION}. Use external CUB/Thrust library.")
     
-  if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
-    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
-    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust/dependencies/cub")
-  else()
+  if (USE_ALL_EXTERNAL_LIBS)
     find_package(Thrust REQUIRED CONFIG)
     if (NOT THRUST_FOUND)
       message(FATAL_ERROR "Thrust not found")
     endif()
     message(STATUS "Found Thrust ${THRUST_VERSION} with include directory ${_THRUST_INCLUDE_DIR}" )
     cuda_include_directories(BEFORE "${_THRUST_INCLUDE_DIR}")
+  else()
+    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust")
+    cuda_include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/thrust/dependencies/cub")
   endif()
 endif(USE_CUDA)
 
@@ -216,98 +221,88 @@ set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
 
 
 
-# Define a macro to simplify the process of finding an include file
-macro(FIND_CONDA_INCLUDE_FILE variable_name header_name conda_hint_path)
-    find_path(${variable_name}
-        NAMES ${header_name}
-        HINTS $ENV{CONDA_PREFIX}/${conda_hint_path}
-    )
-endmacro()
-
-
 # include directories
 target_include_directories(dgl PRIVATE "include")
 
-if (NOT FORCE_NO_VENDOR_THIRD_PARTY)
-  target_include_directories(dgl PRIVATE "third_party/dlpack/include")
-  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
-  target_include_directories(dgl PRIVATE "third_party/phmap/")
-  target_include_directories(dgl PRIVATE "third_party/xbyak/")
-  target_include_directories(dgl PRIVATE "third_party/METIS/include/")
-  target_include_directories(dgl PRIVATE "tensoradapter/include")
-  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
-  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
-else()
-
-  if(USE_LIBXSMM)
-    message(FATAL_ERROR "Cannot use libxsmm without vendoring third party libs")
-  endif()
-
-  if(USE_TVM)
-    message(FATAL_ERROR "Cannot use TVM without vendoring third party libs")
-  endif()
-
-  if(USE_TVM)
-    message(FATAL_ERROR "Cannot use TVM without vendoring third party libs")
-  endif()
-
-  if(BUILD_CPP_TEST)
-    message(FATAL_ERROR "Cannot build tests without vendoring third party libs")
-  endif()
-
-  if(USE_HDFS)
-    message(FATAL_ERROR "Cannot use HDFS without vendoring third party libs")
-  endif()
-  
-
-  # add conda include dir to search path
-  message(STATUS "Using Conda environment: $ENV{CONDA_PREFIX}")
+# check for conda includes
+if (USE_CONDA_INCLUDES)
+  message(STATUS "Using Conda environment includes: $ENV{CONDA_PREFIX}")
   target_include_directories(dgl PRIVATE $ENV{CONDA_PREFIX}/include)
-  # this seems to take care of the below libraries
+endif()
 
-  #target_include_directories(dgl PRIVATE "third_party/phmap/")
-  #target_include_directories(dgl PRIVATE "third_party/dlpack/include")
-  #target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+# dlpack is just an include
+if (USE_ALL_EXTERNAL_LIBS)
+  find_package(Dlpack REQUIRED)
+  if (dlpack_FOUND)
+    target_include_directories(dgl PRIVATE ${DLPACK_INCLUDE_DIRS})
+  else()
+    message(FATAL_ERROR "dlpack not found")
+  endif()
+else()
+  target_include_directories(dgl PRIVATE "third_party/dlpack/include")
+endif()
 
 
-  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+# dmkc-core
+if (USE_ALL_EXTERNAL_LIBS)
+  find_package(Dmlc-core REQUIRED)
+  if()
+    target_include_directories(dgl PRIVATE ${DMLC_INCLUDE_DIRS})
+    target_link_libraries(dgl ${DMLC_LIBRARIES})
+  else()
+    message(FATAL_ERROR "dmlc-core not found")
+  endif()
+else()
+  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
+  # For serialization
+  if (USE_HDFS)
+    option(DMLC_HDFS_SHARED "dgl has to build with dynamic hdfs library" ON)
+  endif()
+  add_subdirectory("third_party/dmlc-core")
+  list(APPEND DGL_LINKER_LIBS dmlc)
+  set(GOOGLE_TEST 0) # Turn off dmlc-core test
+endif()
 
+
+# metis 
+if (USE_ALL_EXTERNAL_LIBS)
   find_package(Metis REQUIRED)
   if (NOT METIS_FOUND)
     message(FATAL_ERROR "Metis not found")
   else()
-    message("Metis found with include path: ${METIS_INCLUDE_DIRS} and library path: ${METIS_LIBRARIES}")  
+    message(STATUS "Metis found with include path: ${METIS_INCLUDE_DIRS} and library path: ${METIS_LIBRARIES}")  
   endif()
   target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
   target_link_libraries(dgl ${METIS_LIBRARY})
+else()
+  target_include_directories(dgl PRIVATE "third_party/METIS/include/")
 
-
-
-  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
-  target_include_directories(dgl PRIVATE "third_party/xbyak/")
-  target_include_directories(dgl PRIVATE "tensoradapter/include")
-  # target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+  # Compile METIS
+  if(NOT MSVC)
+    set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
+    include(${GKLIB_PATH}/GKlibSystem.cmake)
+    include_directories(${GKLIB_PATH})
+    include_directories("third_party/METIS/include/")
+    add_subdirectory("third_party/METIS/libmetis/")
+    list(APPEND DGL_LINKER_LIBS metis)
+  endif(NOT MSVC)
 
 endif()
 
 
-# For serialization
-if (USE_HDFS)
-  option(DMLC_HDFS_SHARED "dgl has to build with dynamic hdfs library" ON)
-endif()
-add_subdirectory("third_party/dmlc-core")
-list(APPEND DGL_LINKER_LIBS dmlc)
-set(GOOGLE_TEST 0) # Turn off dmlc-core test
 
-# Compile METIS
-if(NOT MSVC)
-  set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
-  include(${GKLIB_PATH}/GKlibSystem.cmake)
-  include_directories(${GKLIB_PATH})
-  include_directories("third_party/METIS/include/")
-  add_subdirectory("third_party/METIS/libmetis/")
-  list(APPEND DGL_LINKER_LIBS metis)
-endif(NOT MSVC)
+
+
+target_include_directories(dgl PRIVATE "third_party/phmap/")
+target_include_directories(dgl PRIVATE "third_party/xbyak/")
+target_include_directories(dgl PRIVATE "tensoradapter/include")
+target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+
+
+
+
+
 
 # Compile LIBXSMM
 if((NOT MSVC) AND USE_LIBXSMM)
@@ -325,10 +320,8 @@ if((NOT MSVC) AND USE_LIBXSMM)
 endif((NOT MSVC) AND USE_LIBXSMM)
 
 if(NOT MSVC)
-  if ()
   # Only build tensorpipe on linux
   string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
   set(TP_STATIC_OR_SHARED STATIC)
   add_subdirectory(third_party/tensorpipe)
   list(APPEND DGL_LINKER_LIBS tensorpipe)
@@ -395,15 +388,14 @@ if(BUILD_TORCH)
   add_dependencies(dgl tensoradapter_pytorch)
 endif(BUILD_TORCH)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
-
-
 # Installation rules
 install(TARGETS dgl DESTINATION lib${LIB_SUFFIX})
 
 # Testing
 if(BUILD_CPP_TEST)
+  if (USE_ALL_EXTERNAL_LIBS)
+    message(FATAL_ERROR "Cannot build tests with USE_ALL_EXTERNAL_LIBS")
+  endif()
   message(STATUS "Build with unittest")
   add_subdirectory(./third_party/googletest)
   enable_testing()
