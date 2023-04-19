@@ -36,6 +36,7 @@ dgl_option(USE_S3 "Build with S3 support" OFF)
 dgl_option(USE_HDFS "Build with HDFS support" OFF) # Set env HADOOP_HDFS_HOME if needed
 dgl_option(REBUILD_LIBXSMM "Clean LIBXSMM build cache at every build" OFF) # Set env HADOOP_HDFS_HOME if needed
 dgl_option(USE_EPOLL "Build with epoll for socket communicator" OFF)
+dgl_option(USE_TENSORPIPE "Build with tensorpipe (only impacts Linux)" ON)
 dgl_option(TP_BUILD_LIBUV "Build libuv together with tensorpipe (only impacts Linux)" ON)
 dgl_option(USE_ALL_EXTERNAL_LIBS "Force to use external third party libraries rather than those vendored in ./third_party" OFF)
 dgl_option(USE_CONDA_INCLUDE, "Add conda include path to include directories" OFF)
@@ -221,8 +222,10 @@ set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
 
 
 
-# include directories
+# include directories that we need
 target_include_directories(dgl PRIVATE "include")
+target_include_directories(dgl PRIVATE "tensoradapter/include")
+
 
 # check for conda includes
 if (USE_CONDA_INCLUDES)
@@ -304,44 +307,89 @@ else()
 endif()
 
 
+# phmap
+if (USE_ALL_EXTERNAL_LIBS)
+  find_package(PHMAP REQUIRED)
+  if (PHMAP_FOUND)
+    target_include_directories(dgl SYSTEM PUBLIC ${PHMAP_INCLUDE_DIRS})
+  else()
+    message(FATAL_ERROR "phmap not found")
+  endif()
+else()
+  target_include_directories(dgl PRIVATE "third_party/phmap/")
+endif()
+
+
+# xbyak 
+if (USE_ALL_EXTERNAL_LIBS)
+  find_package(XBYAK REQUIRED)
+  if (XBYAK_FOUND)
+    target_include_directories(dgl SYSTEM PUBLIC ${XBYAK_INCLUDE_DIRS})
+  else()
+    message(FATAL_ERROR "xbyak not found")
+  endif()
+else()
+  target_include_directories(dgl PRIVATE "third_party/xbyak/")
+endif()
+
+# nanoflann
+if (USE_ALL_EXTERNAL_LIBS)
+  find_package(NANOFANN REQUIRED)
+  if (NANOFANN_FOUND)
+    target_include_directories(dgl SYSTEM PUBLIC ${NANOFANN_INCLUDE_DIRS})
+  else()
+    message(FATAL_ERROR "nanoflann not found")
+  endif()
+else()
+  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+endif()
 
 
 
-target_include_directories(dgl PRIVATE "third_party/phmap/")
-target_include_directories(dgl PRIVATE "third_party/xbyak/")
-target_include_directories(dgl PRIVATE "tensoradapter/include")
-target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
-target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+
+if (USE_LIBXSMM)
+  if (USE_ALL_EXTERNAL_LIBS)
+    message(FATAL_ERROR "Cannot build with external libs and LIBXSMM")
+  endif()
+
+  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+  # Compile LIBXSMM
+  if(MSVC)
+    message(WARNING "LIBXSMM is not supported with MSVC, ignoring")
+  else()
+    if(REBUILD_LIBXSMM)
+      add_custom_target(libxsmm COMMAND make realclean COMMAND make -j BLAS=0
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                        )
+    else(REBUILD_LIBXSMM)
+      add_custom_target(libxsmm COMMAND make -j BLAS=0
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                        )
+    endif(REBUILD_LIBXSMM)
+    add_dependencies(dgl libxsmm)
+    list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
+  endif()
+endif()
 
 
+if (USE_TENSORPIPE)
+  if (USE_ALL_EXTERNAL_LIBS)
+    message(FATAL_ERROR "Cannot build with external libs and tensorpipe")
+  endif()
 
+  if(MSVC)
+    message(WARNING "MSVC does not support tensorpipe, disabling it")
+  else()
+    # Only build tensorpipe on linux
+    string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
+    set(TP_STATIC_OR_SHARED STATIC)
+    add_subdirectory(third_party/tensorpipe)
+    list(APPEND DGL_LINKER_LIBS tensorpipe)
+    target_include_directories(dgl PRIVATE third_party/tensorpipe)
+  endif()
 
-
-
-# Compile LIBXSMM
-if((NOT MSVC) AND USE_LIBXSMM)
-  if(REBUILD_LIBXSMM)
-    add_custom_target(libxsmm COMMAND make realclean COMMAND make -j BLAS=0
-                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                      )
-  else(REBUILD_LIBXSMM)
-    add_custom_target(libxsmm COMMAND make -j BLAS=0
-                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                      )
-  endif(REBUILD_LIBXSMM)
-  add_dependencies(dgl libxsmm)
-  list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
-endif((NOT MSVC) AND USE_LIBXSMM)
-
-if(NOT MSVC)
-  # Only build tensorpipe on linux
-  string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
-  set(TP_STATIC_OR_SHARED STATIC)
-  add_subdirectory(third_party/tensorpipe)
-  list(APPEND DGL_LINKER_LIBS tensorpipe)
-  target_include_directories(dgl PRIVATE third_party/tensorpipe)
-endif(NOT MSVC)
+endif()
 
 # Compile TVM Runtime and Featgraph
 # (NOTE) We compile a dynamic library called featgraph_runtime, which the DGL library links to.
@@ -378,6 +426,9 @@ endif(MSVC)
 # of the wrong version when I build everything in the same CMake process.  As
 # a result, I (BarclayII) am launching an individual CMake build for every PyTorch version.
 if(BUILD_TORCH)
+  if (USE_ALL_EXTERNAL_LIBS)
+    message(FATAL_ERROR "Cannot build with external libs and pytorch backend")
+  endif()
   file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR} BINDIR)
   file(TO_NATIVE_PATH ${CMAKE_COMMAND} CMAKE_CMD)
   if(MSVC)
