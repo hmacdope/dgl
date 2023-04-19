@@ -107,8 +107,8 @@ else(MSVC)
   include(CheckCXXCompilerFlag)
   # tensorpipe's dependencies require C++14
   check_cxx_compiler_flag("-std=c++14"    SUPPORT_CXX14)
-  set(CMAKE_C_FLAGS "-O2 -Wall -fPIC ${CMAKE_C_FLAGS}")
-  set(CMAKE_CXX_FLAGS "-O2 -Wall -fPIC -std=c++14 ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_C_FLAGS "-O2  -fPIC ${CMAKE_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-O2 -fPIC -std=c++14 ${CMAKE_CXX_FLAGS}")
   if(NOT APPLE)
     set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--warn-common ${CMAKE_SHARED_LINKER_FLAGS}")
   endif(NOT APPLE)
@@ -267,15 +267,27 @@ else()
 endif()
 
 
-# metis 
+# metis and gklib
 if (USE_ALL_EXTERNAL_LIBS)
   find_package(METIS REQUIRED)
   if (METIS_FOUND)
     target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
     target_link_libraries(dgl ${METIS_LIBRARY})
   else()
-    message(FATAL_ERROR "METIS not found")
+    message(FATAL_ERROR "metis not found")
   endif()
+
+  # find_package(GKLIB REQUIRED)
+  # if (GKLIB_FOUND)
+  # target_include_directories(dgl SYSTEM PUBLIC ${GKLIB_INCLUDE_DIRS})
+  # else()
+  #   message(FATAL_ERROR "glkib not found")
+  # endif() << FINISH THIS 
+
+  set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
+  include(${GKLIB_PATH}/GKlibSystem.cmake)
+  include_directories(${GKLIB_PATH})
+
 else()
   target_include_directories(dgl PRIVATE "third_party/METIS/include/")
 
@@ -324,6 +336,7 @@ endif((NOT MSVC) AND USE_LIBXSMM)
 if(NOT MSVC)
   # Only build tensorpipe on linux
   string(REPLACE "-pedantic" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-compare")
   set(TP_STATIC_OR_SHARED STATIC)
   add_subdirectory(third_party/tensorpipe)
   list(APPEND DGL_LINKER_LIBS tensorpipe)
@@ -335,6 +348,9 @@ endif(NOT MSVC)
 # Kernels are packed in a separate dynamic library called featgraph_kernels, which DGL
 # will load during runtime.
 if(USE_TVM)
+  if (USE_ALL_EXTERNAL_LIBS)
+    message(FATAL_ERROR "using TVM with external libraries is not supported" )
+  endif()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_TVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_TVM")
   target_include_directories(dgl PRIVATE "featgraph/include")
@@ -389,6 +405,8 @@ if(BUILD_TORCH)
   endif(MSVC)
   add_dependencies(dgl tensoradapter_pytorch)
 endif(BUILD_TORCH)
+
+
 
 # Installation rules
 install(TARGETS dgl DESTINATION lib${LIB_SUFFIX})

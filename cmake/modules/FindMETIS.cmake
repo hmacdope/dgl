@@ -71,6 +71,8 @@ if(NOT METIS_LIBRARY)
   )
 endif()
 
+
+
 # Get METIS version
 if(NOT METIS_VERSION_STRING AND METIS_INCLUDE_DIR AND EXISTS "${METIS_INCLUDE_DIR}/metis.h")
   set(version_pattern "^#define[\t ]+METIS_(MAJOR|MINOR)_VERSION[\t ]+([0-9\\.]+)$")
