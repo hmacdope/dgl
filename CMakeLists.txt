@@ -232,8 +232,8 @@ endif()
 
 # dlpack is just an include
 if (USE_ALL_EXTERNAL_LIBS)
-  find_package(Dlpack REQUIRED)
-  if (dlpack_FOUND)
+  find_package(DLPACK REQUIRED)
+  if (DLPACK_FOUND)
     target_include_directories(dgl PRIVATE ${DLPACK_INCLUDE_DIRS})
   else()
     message(FATAL_ERROR "dlpack not found")
