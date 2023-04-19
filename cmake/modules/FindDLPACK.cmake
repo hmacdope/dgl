@@ -28,6 +28,7 @@ find_path(DLPACK_INCLUDE_DIRS
 
 # Check if dlpack header is found
 if(DLPACK_INCLUDE_DIR)
+    message(STATUS "dlpack found")
     set(DLPACK_FOUND TRUE)
 else()
     set(DLPACK_FOUND FALSE)

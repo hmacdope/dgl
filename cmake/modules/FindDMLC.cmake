@@ -26,8 +26,23 @@ find_path(DMLC_INCLUDE_DIR
     PATH_SUFFIXES include
 )
 
+if(DMLC_LIBRARY)
+  set(DMLC_LIBRARY ${DMLC_LIBRARY})
+endif()
+if(NOT DMLC_LIBRARY)
+  message(STATUS "DMLC_LIBRARY not defined, searching for dmlc library")  
+  find_library(DMLC_LIBRARY
+    NAMES dmlc 
+    HINTS $ENV{CONDA_PREFIX}/lib
+    PATH_SUFFIXES lib
+    DOC "Directory where the DMLC library is located"
+  )
+endif()
+
+
 # Check if dlpack header is found
-if(DMLC_INCLUDE_DIR)
+if(DMLC_INCLUDE_DIR AND DMLC_LIBRARY)
+    message(STATUS "dmlc found")
     set(DMLC_FOUND TRUE)
 else()
     set(DMLC_FOUND FALSE)
@@ -37,4 +52,4 @@ endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(DMLC REQUIRED_VARS DLPACK_INCLUDE_DIR)
 
-mark_as_advanced(DMLC_INCLUDE_DIR)
+mark_as_advanced(DMLC_INCLUDE_DIR DMLC_LIBRARY)
