@@ -38,12 +38,38 @@ dgl_option(REBUILD_LIBXSMM "Clean LIBXSMM build cache at every build" OFF) # Set
 dgl_option(USE_EPOLL "Build with epoll for socket communicator" OFF)
 dgl_option(USE_TENSORPIPE "Build with tensorpipe (only impacts Linux)" ON)
 dgl_option(TP_BUILD_LIBUV "Build libuv together with tensorpipe (only impacts Linux)" ON)
+
+# options to force use external libraries
 dgl_option(USE_ALL_EXTERNAL_LIBS "Force to use external third party libraries rather than those vendored in ./third_party" OFF)
+dgl_option(USE_EXTERNAL_THRUST "Force to use external thrust" OFF)
+dgl_option(USE_EXTERNAL_DLPACK "Force to use external dlpack" OFF)
+dgl_option(USE_EXTERNAL_DMLC "Force to use external dmlc-core" OFF)
+dgl_option(USE_EXTERNAL_METIS "Force to use external metis" OFF)
+dgl_option(USE_EXTERNAL_PHMAP "Force to use external parallel-hashmap" OFF)
+dgl_option(USE_EXTERNAL_XBYAK "Force to use external xbyak" OFF)
+dgl_option(USE_EXTERNAL_NANOFLANN "Force to use external nanoflann" OFF)
+
+
 dgl_option(USE_CONDA_INCLUDE, "Add conda include path to include directories" OFF)
 
 
 if(USE_ALL_EXTERNAL_LIBS)
   message(STATUS "Use all external libraries")
+  option(USE_EXTERNAL_THRUST ON)
+  option(USE_EXTERNAL_DLPACK ON)
+  option(USE_EXTERNAL_DMLC ON)
+  option(USE_EXTERNAL_METIS ON)
+  option(USE_EXTERNAL_PHMAP ON)
+  option(USE_EXTERNAL_XBYAK ON)
+  option(USE_EXTERNAL_NANOFLANN ON)
+endif()
+
+
+if(USE_ALL_EXTERNAL_LIBS OR USE_EXTERNAL_THRUST OR USE_EXTERNAL_DLPACK OR USE_EXTERNAL_DMLC OR USE_EXTERNAL_METIS OR USE_EXTERNAL_PHMAP OR USE_EXTERNAL_XBYAK OR USE_EXTERNAL_NANOFLANN)
+  message(STATUS "Use external libraries")
+  set(USE_EXTERNAL_LIBS ON)
+else()
+  set(USE_EXTERNAL_LIBS OFF)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
@@ -61,7 +87,7 @@ if(USE_CUDA)
 
   message(STATUS "Detected CUDA of version ${CUDA_VERSION}. Use external CUB/Thrust library.")
     
-  if (USE_ALL_EXTERNAL_LIBS)
+  if (USE_EXTERNAL_THRUST)
     find_package(Thrust REQUIRED CONFIG)
     if (NOT THRUST_FOUND)
       message(FATAL_ERROR "Thrust not found")
@@ -234,7 +260,7 @@ if (USE_CONDA_INCLUDES)
 endif()
 
 # dlpack is just an include
-if (USE_ALL_EXTERNAL_LIBS)
+if (USE_EXTERNAL_DLPACK)
   find_package(DLPACK REQUIRED)
   if (DLPACK_FOUND)
     target_include_directories(dgl PRIVATE ${DLPACK_INCLUDE_DIRS})
@@ -246,15 +272,15 @@ else()
 endif()
 
 
-# dmkc-core
-if (USE_ALL_EXTERNAL_LIBS)
+# dmlc-core
+if (USE_EXTERNAL_DMLC)
   if (USE_HDFS)
     message(FATAL_ERROR "external lib DMLC does not support HDFS")
   endif()
   find_package(DMLC REQUIRED)
   if(DMLC_FOUND)
     target_include_directories(dgl PRIVATE ${DMLC_INCLUDE_DIR})
-    target_link_libraries(dgl ${DMLC_LIBRARIE})
+    target_link_libraries(dgl ${DMLC_LIBRARY})
   else()
     message(FATAL_ERROR "dmlc not found")
   endif()
@@ -271,7 +297,8 @@ endif()
 
 
 # metis and gklib
-if (USE_ALL_EXTERNAL_LIBS)
+if (USE_EXTERNAL_METIS)
+  message(FATAL_ERROR "external metis not supported yet")
   find_package(METIS REQUIRED)
   if (METIS_FOUND)
     target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
@@ -286,10 +313,6 @@ if (USE_ALL_EXTERNAL_LIBS)
   # else()
   #   message(FATAL_ERROR "glkib not found")
   # endif() << FINISH THIS 
-
-  set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
-  include(${GKLIB_PATH}/GKlibSystem.cmake)
-  include_directories(${GKLIB_PATH})
 
 else()
   target_include_directories(dgl PRIVATE "third_party/METIS/include/")
@@ -308,10 +331,10 @@ endif()
 
 
 # phmap
-if (USE_ALL_EXTERNAL_LIBS)
+if (USE_EXTERNAL_PHMAP)
   find_package(PHMAP REQUIRED)
   if (PHMAP_FOUND)
-    target_include_directories(dgl SYSTEM PUBLIC ${PHMAP_INCLUDE_DIRS})
+    target_include_directories(dgl SYSTEM PUBLIC ${PHMAP_INCLUDE_DIR})
   else()
     message(FATAL_ERROR "phmap not found")
   endif()
@@ -321,10 +344,10 @@ endif()
 
 
 # xbyak 
-if (USE_ALL_EXTERNAL_LIBS)
+if (USE_EXTERNAL_XBYAK)
   find_package(XBYAK REQUIRED)
   if (XBYAK_FOUND)
-    target_include_directories(dgl SYSTEM PUBLIC ${XBYAK_INCLUDE_DIRS})
+    target_include_directories(dgl SYSTEM PUBLIC ${XBYAK_INCLUDE_DIR})
   else()
     message(FATAL_ERROR "xbyak not found")
   endif()
@@ -333,10 +356,10 @@ else()
 endif()
 
 # nanoflann
-if (USE_ALL_EXTERNAL_LIBS)
-  find_package(NANOFANN REQUIRED)
-  if (NANOFANN_FOUND)
-    target_include_directories(dgl SYSTEM PUBLIC ${NANOFANN_INCLUDE_DIRS})
+if (USE_EXTERNAL_NANOFLANN)
+  find_package(NANOFLANN REQUIRED)
+  if (NANOFLANN_FOUND)
+    target_include_directories(dgl SYSTEM PUBLIC ${NANOFLANN_INCLUDE_DIR})
   else()
     message(FATAL_ERROR "nanoflann not found")
   endif()
@@ -348,9 +371,6 @@ endif()
 
 
 if (USE_LIBXSMM)
-  if (USE_ALL_EXTERNAL_LIBS)
-    message(FATAL_ERROR "Cannot build with external libs and LIBXSMM")
-  endif()
 
   target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
   # Compile LIBXSMM
@@ -368,15 +388,16 @@ if (USE_LIBXSMM)
     endif(REBUILD_LIBXSMM)
     add_dependencies(dgl libxsmm)
     list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=deprecated-declarations")
+
   endif()
 endif()
 
 
 if (USE_TENSORPIPE)
-  if (USE_ALL_EXTERNAL_LIBS)
-    message(FATAL_ERROR "Cannot build with external libs and tensorpipe")
-  endif()
-
+  # if (USE_ALL_EXTERNAL_LIBS)
+  #   message(FATAL_ERROR "Cannot build with external libs and tensorpipe")
+  # endif()
   if(MSVC)
     message(WARNING "MSVC does not support tensorpipe, disabling it")
   else()
@@ -396,7 +417,7 @@ endif()
 # Kernels are packed in a separate dynamic library called featgraph_kernels, which DGL
 # will load during runtime.
 if(USE_TVM)
-  if (USE_ALL_EXTERNAL_LIBS)
+  if (USE_EXTERNAL_LIBS)
     message(FATAL_ERROR "using TVM with external libraries is not supported" )
   endif()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_TVM")
@@ -426,7 +447,7 @@ endif(MSVC)
 # of the wrong version when I build everything in the same CMake process.  As
 # a result, I (BarclayII) am launching an individual CMake build for every PyTorch version.
 if(BUILD_TORCH)
-  if (USE_ALL_EXTERNAL_LIBS)
+  if (USE_EXTERNAL_LIBS)
     message(FATAL_ERROR "Cannot build with external libs and pytorch backend")
   endif()
   file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR} BINDIR)
@@ -464,8 +485,8 @@ install(TARGETS dgl DESTINATION lib${LIB_SUFFIX})
 
 # Testing
 if(BUILD_CPP_TEST)
-  if (USE_ALL_EXTERNAL_LIBS)
-    message(FATAL_ERROR "Cannot build tests with USE_ALL_EXTERNAL_LIBS")
+  if (USE_EXTERNAL_LIBS)
+    message(FATAL_ERROR "Cannot build tests with external libs")
   endif()
   message(STATUS "Build with unittest")
   add_subdirectory(./third_party/googletest)

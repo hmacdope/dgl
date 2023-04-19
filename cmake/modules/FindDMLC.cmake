@@ -42,7 +42,7 @@ endif()
 
 # Check if dlpack header is found
 if(DMLC_INCLUDE_DIR AND DMLC_LIBRARY)
-    message(STATUS "dmlc found")
+    message(STATUS "dmlc found include: ${DMLC_INCLUDE_DIR} lib: ${DMLC_LIBRARY}")
     set(DMLC_FOUND TRUE)
 else()
     set(DMLC_FOUND FALSE)
