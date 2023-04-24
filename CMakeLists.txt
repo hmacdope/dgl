@@ -254,9 +254,24 @@ target_include_directories(dgl PRIVATE "tensoradapter/include")
 
 
 # check for conda includes
+if("$ENV{CONDA_BUILD}" STREQUAL "1")
+  set(in_conda_build True)
+  message(STATUS "Conda build environment detected")
+elseif(DEFINED ENV{CONDA_PREFIX})
+  set(in_conda_prefix True)
+  message(STATUS "Conda environment detected: $ENV{CONDA_PREFIX}")
+endif()
+
 if (USE_CONDA_INCLUDES)
-  message(STATUS "Using Conda environment includes: $ENV{CONDA_PREFIX}")
-  target_include_directories(dgl PRIVATE $ENV{CONDA_PREFIX}/include)
+  if(in_conda_build)
+    message(STATUS "Using Conda build environment includes: $ENV{PREFIX}")
+    target_include_directories(dgl PRIVATE "$ENV{PREFIX}/include" "$ENV{BUILD_PREFIX}/include")
+  elseif(in_conda_prefix)
+    message(STATUS "Using Conda environment includes: $ENV{CONDA_PREFIX}")
+    target_include_directories(dgl PRIVATE "$ENV{CONDA_PREFIX}/include")
+  else()
+    message(FATAL_ERROR "Conda environment not detected")
+  endif()
 endif()
 
 # dlpack is just an include
