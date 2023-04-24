@@ -14,7 +14,7 @@
 if(NOT DMLC_INCLUDE_DIR)
   message(STATUS "DMLC_INCLUDE_DIR not defined, searching for dmlc header")  
   find_path(DMLC_INCLUDE_DIR dmlc/base.h
-    HINTS $ENV{DMLC}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include
+    HINTS "$ENV{DMLC}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"
     PATH_SUFFIXES include
     DOC "Directory where the DMLC header files are located"
   )

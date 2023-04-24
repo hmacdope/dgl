@@ -14,7 +14,7 @@
 if(NOT NANOFLANN_INCLUDE_DIR)
   message(STATUS "NANOFLANN_INCLUDE_DIR not defined, searching for NANOFLANN header")  
   find_path(NANOFLANN_INCLUDE_DIR nanoflann.hpp
-    HINTS $ENV{NANOFLANN}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include
+    HINTS "$ENV{NANOFLANN}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"
     PATH_SUFFIXES include
     DOC "Directory where the NANOFLANN header files are located"
   )
