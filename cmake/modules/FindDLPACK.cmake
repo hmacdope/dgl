@@ -12,7 +12,7 @@
 # Define user options
 
 if(NOT DLPACK_INCLUDE_DIR)
-  message(STATUS "DLPACK_INCLUDE_DIR not defined, searching for dlpack header")  
+  message(STATUS "DLPACK_INCLUDE_DIR not defined, searching for dlpack header in $ENV{DLPACK}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"")  
   find_path(DLPACK_INCLUDE_DIR dlpack/dlpack.h
     HINTS "$ENV{DLPACK}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"
     PATH_SUFFIXES include

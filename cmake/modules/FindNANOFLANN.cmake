@@ -12,7 +12,7 @@
 # Define user options
 
 if(NOT NANOFLANN_INCLUDE_DIR)
-  message(STATUS "NANOFLANN_INCLUDE_DIR not defined, searching for NANOFLANN header")  
+  message(STATUS "NANOFLANN_INCLUDE_DIR not defined, searching for NANOFLANN header in $ENV{NANOFLANN}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include ")  
   find_path(NANOFLANN_INCLUDE_DIR nanoflann.hpp
     HINTS "$ENV{NANOFLANN}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"
     PATH_SUFFIXES include
