@@ -14,7 +14,7 @@
 if(NOT DLPACK_INCLUDE_DIR)
   message(STATUS "DLPACK_INCLUDE_DIR not defined, searching for dlpack header")  
   find_path(DLPACK_INCLUDE_DIR dlpack/dlpack.h
-    HINTS $ENV{CONDA_PREFIX}/include
+    HINTS $ENV{DLPACK}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include
     PATH_SUFFIXES include
     DOC "Directory where the DLPACK header files are located"
   )

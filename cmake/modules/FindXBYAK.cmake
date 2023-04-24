@@ -14,7 +14,7 @@
 if(NOT XBYAK_INCLUDE_DIR)
   message(STATUS "XBYAK_INCLUDE_DIR not defined, searching for XBYAK header")  
   find_path(XBYAK_INCLUDE_DIR xbyak/xbyak.h
-    HINTS $ENV{CONDA_PREFIX}/include
+    HINTS $ENV{XBYAK}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include/
     PATH_SUFFIXES include
     DOC "Directory where the XBYAK header files are located"
   )

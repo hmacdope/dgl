@@ -14,7 +14,7 @@
 if(NOT PHMAP_INCLUDE_DIR)
   message(STATUS "PHMAP_INCLUDE_DIR not defined, searching for PHMAP header")  
   find_path(PHMAP_INCLUDE_DIR parallel_hashmap/phmap.h
-    HINTS $ENV{CONDA_PREFIX}/include
+    HINTS $ENV{PHMAP}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include/
     PATH_SUFFIXES include
     DOC "Directory where the PHMAP header files are located"
   )

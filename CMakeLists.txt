@@ -72,7 +72,7 @@ else()
   set(USE_EXTERNAL_LIBS OFF)
 endif()
 
-set(CMAKE_MODULE_PATH  "${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/modules/")
+set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
