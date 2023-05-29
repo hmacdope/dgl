@@ -12,23 +12,19 @@
 # Define user options
 
 if(NOT DLPACK_INCLUDE_DIR)
+  message(STATUS "EXTERNAL_DLPACK_PATH: ${EXTERNAL_DLPACK_PATH}")
   message(STATUS "DLPACK_INCLUDE_DIR not defined, searching for dlpack header in $ENV{DLPACK}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include")  
   find_path(DLPACK_INCLUDE_DIR dlpack/dlpack.h
-    HINTS "$ENV{DLPACK}/include" "$ENV{CONDA_PREFIX}/include" "$ENV{BUILD_PREFIX}/include"
+    PATHS ${EXTERNAL_DLPACK_PATH}
+    HINTS $ENV{DLPACK}/include $ENV{CONDA_PREFIX}/include $ENV{BUILD_PREFIX}/include
     PATH_SUFFIXES include
     DOC "Directory where the DLPACK header files are located"
   )
 endif()
 
-# Find dlpack header
-find_path(DLPACK_INCLUDE_DIRS
-    NAMES dlpack/dlpack.h
-    PATH_SUFFIXES include
-)
-
 # Check if dlpack header is found
 if(DLPACK_INCLUDE_DIR)
-    message(STATUS "dlpack found")
+    message(STATUS "dlpack found at ${DLPACK_INCLUDE_DIR}")
     set(DLPACK_FOUND TRUE)
 else()
     set(DLPACK_FOUND FALSE)
