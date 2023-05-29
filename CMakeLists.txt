@@ -498,9 +498,6 @@ endif(MSVC)
 # of the wrong version when I build everything in the same CMake process.  As
 # a result, I (BarclayII) am launching an individual CMake build for every PyTorch version.
 if(BUILD_TORCH)
-  if (USE_EXTERNAL_LIBS)
-    message(FATAL_ERROR "Cannot build with external libs and pytorch backend")
-  endif()
   file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR} BINDIR)
   file(TO_NATIVE_PATH ${CMAKE_COMMAND} CMAKE_CMD)
   if(MSVC)
