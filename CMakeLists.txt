@@ -37,6 +37,16 @@ dgl_option(BUILD_TORCH "Build the PyTorch plugin" OFF)
 dgl_option(BUILD_SPARSE "Build DGL sparse library" ON)
 dgl_option(TORCH_PYTHON_INTERPS "Python interpreter used to build tensoradapter and DGL sparse library" python3)
 
+
+dgl_option(EXTERNAL_THRUST_PATH "Path to external thrust" OFF)
+dgl_option(EXTERNAL_DLPACK_PATH "Path to external dlpack" OFF)
+dgl_option(EXTERNAL_DMLC_PATH "Path to external dmlc-core" OFF)
+dgl_option(EXTERNAL_METIS_PATH "Path to external metis" OFF)
+dgl_option(EXTERNAL_PHMAP_PATH "Path to external parallel-hashmap" OFF)
+dgl_option(EXTERNAL_NANOFLANN_PATH "Path to use external nanoflann" OFF)
+dgl_option(EXTERNAL_PCG_PATH "Path to use external pcg" OFF)
+
+
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
 if (NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb")
@@ -172,15 +182,45 @@ set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
 
 # include directories
 target_include_directories(dgl PRIVATE "include")
-target_include_directories(dgl PRIVATE "third_party/dlpack/include")
-target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
-target_include_directories(dgl PRIVATE "third_party/phmap/")
+
+if(EXTERNAL_DLPACK_PATH)
+  include_directories(SYSTEM ${EXTERNAL_DLPACK_PATH})
+else(EXTERNAL_DLPACK_PATH)
+  target_include_directories(dgl PRIVATE "third_party/dlpack/include")
+endif(EXTERNAL_DLPACK_PATH)
+
+if(EXTERNAL_DMLC_PATH)
+  include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
+else(EXTERNAL_DMLC_PATH)
+  target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
+endif(EXTERNAL_DMLC_PATH)
+
+if(EXTERNAL_PHMAP_PATH)
+  include_directories(SYSTEM ${EXTERNAL_PHMAP_PATH})
+else(EXTERNAL_PHMAP_PATH)
+  target_include_directories(dgl PRIVATE "third_party/phmap")
+endif(EXTERNAL_PHMAP_PATH)
+
+
 target_include_directories(dgl PRIVATE "third_party/xbyak/")
+
 target_include_directories(dgl PRIVATE "third_party/METIS/include/")
+
 target_include_directories(dgl PRIVATE "tensoradapter/include")
-target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+
+if(EXTERNAL_NANOFLANN_PATH)
+  include_directories(SYSTEM ${EXTERNAL_NANOFLANN_PATH})
+else(EXTERNAL_NANOFLANN_PATH)
+  target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
+endif(EXTERNAL_NANOFLANN_PATH)
+
 target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
-target_include_directories(dgl PRIVATE "third_party/pcg/include")
+
+if (EXTERNAL_PCG_PATH)
+  include_directories(SYSTEM ${EXTERNAL_PCG_PATH})
+else(EXTERNAL_PCG_PATH)
+  target_include_directories(dgl PRIVATE "third_party/pcg/include")
+endif(EXTERNAL_PCG_PATH)
 
 # For serialization
 if (USE_HDFS)
