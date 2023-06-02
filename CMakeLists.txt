@@ -38,13 +38,23 @@ dgl_option(BUILD_SPARSE "Build DGL sparse library" ON)
 dgl_option(TORCH_PYTHON_INTERPS "Python interpreter used to build tensoradapter and DGL sparse library" python3)
 
 
-dgl_option(EXTERNAL_THRUST_PATH "Path to external thrust" OFF)
 dgl_option(EXTERNAL_DLPACK_PATH "Path to external dlpack" OFF)
 dgl_option(EXTERNAL_DMLC_PATH "Path to external dmlc-core" OFF)
-dgl_option(EXTERNAL_METIS_PATH "Path to external metis" OFF)
 dgl_option(EXTERNAL_PHMAP_PATH "Path to external parallel-hashmap" OFF)
 dgl_option(EXTERNAL_NANOFLANN_PATH "Path to use external nanoflann" OFF)
 dgl_option(EXTERNAL_PCG_PATH "Path to use external pcg" OFF)
+dgl_option(EXTERNAL_METIS_PATH "Path to external metis" OFF)
+dgl_option(EXTERNAL_GKLIB_PATH "Path to external gklib" OFF)
+
+if (EXTERNAL_DLPACK_PATH OR EXTERNAL_DMLC_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_PCG_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_GKLIB_PATH)
+  message(STATUS "Using at least one external library")
+  set(USE_EXTERNAL_LIBS ON)
+  
+  if (BUILD_CPP_TEST)
+    message(FATAL_ERROR "Cannot build cpp unittests with external libraries")
+  endif(BUILD_CPP_TEST)
+
+endif()
 
 
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
@@ -193,6 +203,13 @@ if(EXTERNAL_DMLC_PATH)
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
 else(EXTERNAL_DMLC_PATH)
   target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
+  # For serialization
+  if (USE_HDFS)
+    option(DMLC_HDFS_SHARED "dgl has to build with dynamic hdfs library" ON)
+  endif()
+  add_subdirectory("third_party/dmlc-core")
+  list(APPEND DGL_LINKER_LIBS dmlc)
+  set(GOOGLE_TEST 0) # Turn off dmlc-core test
 endif(EXTERNAL_DMLC_PATH)
 
 if(EXTERNAL_PHMAP_PATH)
@@ -201,11 +218,10 @@ else(EXTERNAL_PHMAP_PATH)
   target_include_directories(dgl PRIVATE "third_party/phmap")
 endif(EXTERNAL_PHMAP_PATH)
 
+# this was removed as an explicit dependency in 1.1
+# target_include_directories(dgl PRIVATE "third_party/xbyak/")
 
-target_include_directories(dgl PRIVATE "third_party/xbyak/")
-
-target_include_directories(dgl PRIVATE "third_party/METIS/include/")
-
+# this is always vendored 
 target_include_directories(dgl PRIVATE "tensoradapter/include")
 
 if(EXTERNAL_NANOFLANN_PATH)
@@ -214,7 +230,29 @@ else(EXTERNAL_NANOFLANN_PATH)
   target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
 endif(EXTERNAL_NANOFLANN_PATH)
 
-target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+if (EXTERNAL_LIBXSMM_PATH)
+  include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
+else(EXTERNAL_LIBXSMM_PATH)
+  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+  # Compile LIBXSMM
+  if((NOT MSVC) AND USE_LIBXSMM)
+    set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER}")
+    if (APPLE)
+      set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER} -isysroot ${CMAKE_OSX_SYSROOT}")
+    endif()
+    if(REBUILD_LIBXSMM)
+      add_custom_target(libxsmm COMMAND make realclean COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                        )
+    else(REBUILD_LIBXSMM)
+      add_custom_target(libxsmm COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                        )
+    endif(REBUILD_LIBXSMM)
+    add_dependencies(dgl libxsmm)
+    list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
+  endif((NOT MSVC) AND USE_LIBXSMM)
+endif(EXTERNAL_LIBXSMM_PATH)
 
 if (EXTERNAL_PCG_PATH)
   include_directories(SYSTEM ${EXTERNAL_PCG_PATH})
@@ -222,42 +260,26 @@ else(EXTERNAL_PCG_PATH)
   target_include_directories(dgl PRIVATE "third_party/pcg/include")
 endif(EXTERNAL_PCG_PATH)
 
-# For serialization
-if (USE_HDFS)
-  option(DMLC_HDFS_SHARED "dgl has to build with dynamic hdfs library" ON)
-endif()
-add_subdirectory("third_party/dmlc-core")
-list(APPEND DGL_LINKER_LIBS dmlc)
-set(GOOGLE_TEST 0) # Turn off dmlc-core test
 
-# Compile METIS
-if(NOT MSVC)
-  set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
-  include(${GKLIB_PATH}/GKlibSystem.cmake)
-  include_directories(${GKLIB_PATH})
-  include_directories("third_party/METIS/include/")
-  add_subdirectory("third_party/METIS/libmetis/")
-  list(APPEND DGL_LINKER_LIBS metis)
-endif(NOT MSVC)
-
-# Compile LIBXSMM
-if((NOT MSVC) AND USE_LIBXSMM)
-  set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER}")
-  if (APPLE)
-    set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER} -isysroot ${CMAKE_OSX_SYSROOT}")
+if (EXTERNAL_METIS_PATH)
+  if(NOT EXTERNAL_GKLIB_PATH)
+    message(FATAL_ERROR "EXTERNAL_GKLIB_PATH must be set if EXTERNAL_METIS_PATH is set")
   endif()
-  if(REBUILD_LIBXSMM)
-    add_custom_target(libxsmm COMMAND make realclean COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                      )
-  else(REBUILD_LIBXSMM)
-    add_custom_target(libxsmm COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                      )
-  endif(REBUILD_LIBXSMM)
-  add_dependencies(dgl libxsmm)
-  list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
-endif((NOT MSVC) AND USE_LIBXSMM)
+  # TODO fix this and add GKLib
+  include_directories(SYSTEM ${EXTERNAL_METIS_PATH})
+  
+  else(EXTERNAL_METIS_PATH)
+    target_include_directories(dgl PRIVATE "third_party/METIS/include")
+    # Compile METIS
+    if(NOT MSVC)
+      set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
+      include(${GKLIB_PATH}/GKlibSystem.cmake)
+      include_directories(${GKLIB_PATH})
+      include_directories("third_party/METIS/include/")
+      add_subdirectory("third_party/METIS/libmetis/")
+      list(APPEND DGL_LINKER_LIBS metis)
+    endif(NOT MSVC)
+endif(EXTERNAL_METIS_PATH)
 
 if(NOT MSVC)
   # Only build tensorpipe on linux
