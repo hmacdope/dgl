@@ -40,6 +40,7 @@ dgl_option(TORCH_PYTHON_INTERPS "Python interpreter used to build tensoradapter 
 
 dgl_option(EXTERNAL_DLPACK_PATH "Path to external dlpack" OFF)
 dgl_option(EXTERNAL_DMLC_PATH "Path to external dmlc-core" OFF)
+dgl_option(EXTERNAL_DMLC_LIB_PATH "Path to external dmlc-core library" OFF)
 dgl_option(EXTERNAL_PHMAP_PATH "Path to external parallel-hashmap" OFF)
 dgl_option(EXTERNAL_NANOFLANN_PATH "Path to use external nanoflann" OFF)
 dgl_option(EXTERNAL_PCG_PATH "Path to use external pcg" OFF)
@@ -193,6 +194,28 @@ set_property(TARGET dgl PROPERTY CXX_STANDARD 14)
 # include directories
 target_include_directories(dgl PRIVATE "include")
 
+
+# check for conda includes
+if("$ENV{CONDA_BUILD}" STREQUAL "1")
+  set(in_conda_build True)
+  message(STATUS "Conda build environment detected")
+elseif(DEFINED ENV{CONDA_PREFIX})
+  set(in_conda_prefix True)
+  message(STATUS "Conda environment detected: $ENV{CONDA_PREFIX}")
+endif()
+
+if (USE_CONDA_INCLUDES)
+  if(in_conda_build)
+    message(STATUS "Using Conda build environment includes: $ENV{PREFIX}")
+    target_include_directories(dgl PRIVATE "$ENV{PREFIX}/include" "$ENV{BUILD_PREFIX}/include")
+  elseif(in_conda_prefix)
+    message(STATUS "Using Conda environment includes: $ENV{CONDA_PREFIX}")
+    target_include_directories(dgl PRIVATE "$ENV{CONDA_PREFIX}/include")
+  else()
+    message(FATAL_ERROR "Conda environment not detected")
+  endif()
+endif()
+
 if(EXTERNAL_DLPACK_PATH)
   include_directories(SYSTEM ${EXTERNAL_DLPACK_PATH})
 else(EXTERNAL_DLPACK_PATH)
@@ -200,7 +223,18 @@ else(EXTERNAL_DLPACK_PATH)
 endif(EXTERNAL_DLPACK_PATH)
 
 if(EXTERNAL_DMLC_PATH)
+  if (USE_HDFS)
+    message(FATAL_ERROR "Cannot use HDFS and external dmlc-core at the same time")
+  endif()
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
+  # find_library(DMLC
+  #   NAMES dmlc
+  #   PATHS ${EXTERNAL_DMLC_LIB_PATH}
+  # )
+  # if(NOT DMLC)
+  #     message(FATAL_ERROR "Failed to find DMLC library")
+  # endif()
+
 else(EXTERNAL_DMLC_PATH)
   target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
   # For serialization
