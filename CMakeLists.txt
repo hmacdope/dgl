@@ -227,13 +227,15 @@ if(EXTERNAL_DMLC_PATH)
     message(FATAL_ERROR "Cannot use HDFS and external dmlc-core at the same time")
   endif()
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
-  # find_library(DMLC
-  #   NAMES dmlc
-  #   PATHS ${EXTERNAL_DMLC_LIB_PATH}
-  # )
-  # if(NOT DMLC)
-  #     message(FATAL_ERROR "Failed to find DMLC library")
-  # endif()
+  find_library(DMLC
+    NAMES dmlc
+    PATHS ${EXTERNAL_DMLC_LIB_PATH}
+  )
+  if(NOT DMLC)
+      message(FATAL_ERROR "Failed to find DMLC library")
+  endif()
+
+  list(APPEND DGL_LINKER_LIBS DMLC)
 
 else(EXTERNAL_DMLC_PATH)
   target_include_directories(dgl PRIVATE "third_party/dmlc-core/include")
@@ -266,6 +268,7 @@ endif(EXTERNAL_NANOFLANN_PATH)
 
 if (EXTERNAL_LIBXSMM_PATH)
   include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
+  
 else(EXTERNAL_LIBXSMM_PATH)
   target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
   # Compile LIBXSMM
