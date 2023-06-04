@@ -228,7 +228,7 @@ if(EXTERNAL_DMLC_PATH)
   endif()
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
   find_library(DMLC
-    NAMES dmlc
+    NAMES libdmlc.a
     PATHS ${EXTERNAL_DMLC_LIB_PATH}
   )
   if(NOT DMLC)
@@ -268,7 +268,7 @@ endif(EXTERNAL_NANOFLANN_PATH)
 
 if (EXTERNAL_LIBXSMM_PATH)
   include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
-  
+
 else(EXTERNAL_LIBXSMM_PATH)
   target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
   # Compile LIBXSMM
