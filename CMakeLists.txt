@@ -217,6 +217,7 @@ if (USE_CONDA_INCLUDES)
 endif()
 
 if(EXTERNAL_DLPACK_PATH)
+  message(STATUS "looking for dlpack headers in ${EXTERNAL_DLPACK_PATH}")
   include_directories(SYSTEM ${EXTERNAL_DLPACK_PATH})
 else(EXTERNAL_DLPACK_PATH)
   target_include_directories(dgl PRIVATE "third_party/dlpack/include")
@@ -226,7 +227,12 @@ if(EXTERNAL_DMLC_PATH)
   if (USE_HDFS)
     message(FATAL_ERROR "Cannot use HDFS and external dmlc-core at the same time")
   endif()
+  message(STATUS "looking for dmlc headers in ${EXTERNAL_DMLC_PATH}")
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
+  
+  if (NOT EXTERNAL_DMLC_LIB_PATH)
+    message(FATAL_ERROR "EXTERNAL_DMLC_LIB_PATH must be set if EXTERNAL_DMLC_PATH is set")
+  endif()
   message(STATUS "looking for dmlc library in ${EXTERNAL_DMLC_LIB_PATH}")
   find_library(DMLC
     NAMES dmlc
@@ -235,7 +241,6 @@ if(EXTERNAL_DMLC_PATH)
   if(NOT DMLC)
       message(FATAL_ERROR "Failed to find DMLC library")
   endif()
-
   list(APPEND DGL_LINKER_LIBS DMLC)
 
 else(EXTERNAL_DMLC_PATH)
