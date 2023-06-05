@@ -227,8 +227,9 @@ if(EXTERNAL_DMLC_PATH)
     message(FATAL_ERROR "Cannot use HDFS and external dmlc-core at the same time")
   endif()
   include_directories(SYSTEM ${EXTERNAL_DMLC_PATH})
+  message(STATUS "looking for dmlc library in ${EXTERNAL_DMLC_LIB_PATH}")
   find_library(DMLC
-    NAMES libdmlc.a
+    NAMES dmlc
     PATHS ${EXTERNAL_DMLC_LIB_PATH}
   )
   if(NOT DMLC)
