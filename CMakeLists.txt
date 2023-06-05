@@ -197,10 +197,10 @@ target_include_directories(dgl PRIVATE "include")
 
 # check for conda includes
 if("$ENV{CONDA_BUILD}" STREQUAL "1")
-  set(in_conda_build True)
+  set(in_conda_build TRUE)
   message(STATUS "Conda build environment detected")
 elseif(DEFINED ENV{CONDA_PREFIX})
-  set(in_conda_prefix True)
+  set(in_conda_prefix TRUE)
   message(STATUS "Conda environment detected: $ENV{CONDA_PREFIX}")
 endif()
 
@@ -274,6 +274,14 @@ endif(EXTERNAL_NANOFLANN_PATH)
 
 if (EXTERNAL_LIBXSMM_PATH)
   include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
+  find_library(XSMM
+    NAMES xsmm
+    PATHS ${EXTERNAL_LIBXSMM_LIB_PATH}
+  )
+  if(NOT XSMM)
+      message(FATAL_ERROR "Failed to find XSMM library")
+  endif()
+  list(APPEND DGL_LINKER_LIBS XSMM)
 
 else(EXTERNAL_LIBXSMM_PATH)
   target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
