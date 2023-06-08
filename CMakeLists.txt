@@ -272,38 +272,43 @@ else(EXTERNAL_NANOFLANN_PATH)
   target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
 endif(EXTERNAL_NANOFLANN_PATH)
 
-if (EXTERNAL_LIBXSMM_PATH)
-  include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
-  find_library(XSMM
-    NAMES xsmm
-    PATHS ${EXTERNAL_LIBXSMM_LIB_PATH}
-  )
-  if(NOT XSMM)
-      message(FATAL_ERROR "Failed to find XSMM library")
-  endif()
-  list(APPEND DGL_LINKER_LIBS XSMM)
-
-else(EXTERNAL_LIBXSMM_PATH)
-  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
-  # Compile LIBXSMM
-  if((NOT MSVC) AND USE_LIBXSMM)
-    set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER}")
-    if (APPLE)
-      set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER} -isysroot ${CMAKE_OSX_SYSROOT}")
+if (USE_LIBXSMM)
+  if (EXTERNAL_LIBXSMM_PATH)
+    include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
+    if (NOT EXTERNAL_LIBXSMM_LIB_PATH)
+      message(FATAL_ERROR "EXTERNAL_LIBXSMM_LIB_PATH must be set if EXTERNAL_LIBXSMM_PATH is set")
     endif()
-    if(REBUILD_LIBXSMM)
-      add_custom_target(libxsmm COMMAND make realclean COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                        )
-    else(REBUILD_LIBXSMM)
-      add_custom_target(libxsmm COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                        )
-    endif(REBUILD_LIBXSMM)
-    add_dependencies(dgl libxsmm)
-    list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
-  endif((NOT MSVC) AND USE_LIBXSMM)
-endif(EXTERNAL_LIBXSMM_PATH)
+    find_package(xsmm
+      REQUIRED
+      HINTS ${EXTERNAL_LIBXSMM_LIB_PATH}
+    )
+    if(NOT xsmm_FOUND)
+        message(FATAL_ERROR "Failed to find LIBXSMM library")
+    endif()
+    list(APPEND DGL_LINKER_LIBS xsmm::xsmm)
+
+  else(EXTERNAL_LIBXSMM_PATH)
+    target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
+    # Compile LIBXSMM
+    if(NOT MSVC)
+      set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER}")
+      if (APPLE)
+        set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER} -isysroot ${CMAKE_OSX_SYSROOT}")
+      endif()
+      if(REBUILD_LIBXSMM)
+        add_custom_target(libxsmm COMMAND make realclean COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
+                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                          )
+      else(REBUILD_LIBXSMM)
+        add_custom_target(libxsmm COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
+                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
+                          )
+      endif(REBUILD_LIBXSMM)
+      add_dependencies(dgl libxsmm)
+      list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
+    endif(NOT MSVC)
+  endif(EXTERNAL_LIBXSMM_PATH)
+endif()
 
 if (EXTERNAL_PCG_PATH)
   include_directories(SYSTEM ${EXTERNAL_PCG_PATH})
