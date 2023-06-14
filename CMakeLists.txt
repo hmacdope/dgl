@@ -43,11 +43,10 @@ dgl_option(EXTERNAL_DMLC_PATH "Path to external dmlc-core" OFF)
 dgl_option(EXTERNAL_DMLC_LIB_PATH "Path to external dmlc-core library" OFF)
 dgl_option(EXTERNAL_PHMAP_PATH "Path to external parallel-hashmap" OFF)
 dgl_option(EXTERNAL_NANOFLANN_PATH "Path to use external nanoflann" OFF)
-dgl_option(EXTERNAL_PCG_PATH "Path to use external pcg" OFF)
 dgl_option(EXTERNAL_METIS_PATH "Path to external metis" OFF)
 dgl_option(EXTERNAL_GKLIB_PATH "Path to external gklib" OFF)
 
-if (EXTERNAL_DLPACK_PATH OR EXTERNAL_DMLC_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_PCG_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_GKLIB_PATH)
+if (EXTERNAL_DLPACK_PATH OR EXTERNAL_DMLC_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_GKLIB_PATH)
   message(STATUS "Using at least one external library")
   set(USE_EXTERNAL_LIBS ON)
   
@@ -263,8 +262,9 @@ endif(EXTERNAL_PHMAP_PATH)
 # this was removed as an explicit dependency in 1.1
 # target_include_directories(dgl PRIVATE "third_party/xbyak/")
 
-# this is always vendored 
+# these header only libs are always vendored 
 target_include_directories(dgl PRIVATE "tensoradapter/include")
+target_include_directories(dgl PRIVATE "third_party/pcg/include")
 
 if(EXTERNAL_NANOFLANN_PATH)
   include_directories(SYSTEM ${EXTERNAL_NANOFLANN_PATH})
@@ -273,48 +273,9 @@ else(EXTERNAL_NANOFLANN_PATH)
 endif(EXTERNAL_NANOFLANN_PATH)
 
 if (USE_LIBXSMM)
-  if (EXTERNAL_LIBXSMM_PATH)
-    include_directories(SYSTEM ${EXTERNAL_LIBXSMM_PATH})
-    if (NOT EXTERNAL_LIBXSMM_LIB_PATH)
-      message(FATAL_ERROR "EXTERNAL_LIBXSMM_LIB_PATH must be set if EXTERNAL_LIBXSMM_PATH is set")
-    endif()
-    find_package(xsmm
-      REQUIRED
-      HINTS ${EXTERNAL_LIBXSMM_LIB_PATH}
-    )
-    if(NOT xsmm_FOUND)
-        message(FATAL_ERROR "Failed to find LIBXSMM library")
-    endif()
-    list(APPEND DGL_LINKER_LIBS xsmm::xsmm)
-
-  else(EXTERNAL_LIBXSMM_PATH)
-    target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
-    # Compile LIBXSMM
-    if(NOT MSVC)
-      set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER}")
-      if (APPLE)
-        set(LIBXSMM_COMPILER "${CMAKE_C_COMPILER} -isysroot ${CMAKE_OSX_SYSROOT}")
-      endif()
-      if(REBUILD_LIBXSMM)
-        add_custom_target(libxsmm COMMAND make realclean COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                          )
-      else(REBUILD_LIBXSMM)
-        add_custom_target(libxsmm COMMAND make -j ECFLAGS="-Wno-error=deprecated-declarations" BLAS=0 CC=${LIBXSMM_COMPILER}
-                          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/third_party/libxsmm
-                          )
-      endif(REBUILD_LIBXSMM)
-      add_dependencies(dgl libxsmm)
-      list(APPEND DGL_LINKER_LIBS -L${CMAKE_SOURCE_DIR}/third_party/libxsmm/lib/ xsmm)
-    endif(NOT MSVC)
-  endif(EXTERNAL_LIBXSMM_PATH)
+  target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
 endif()
 
-if (EXTERNAL_PCG_PATH)
-  include_directories(SYSTEM ${EXTERNAL_PCG_PATH})
-else(EXTERNAL_PCG_PATH)
-  target_include_directories(dgl PRIVATE "third_party/pcg/include")
-endif(EXTERNAL_PCG_PATH)
 
 
 if (EXTERNAL_METIS_PATH)
