@@ -277,22 +277,14 @@ if (USE_LIBXSMM)
   target_include_directories(dgl PRIVATE "third_party/libxsmm/include")
 endif()
 
-
-
 if (EXTERNAL_METIS_PATH)
-  include_directories(SYSTEM ${EXTERNAL_METIS_PATH})
-  if (NOT EXTERNAL_METIS_LIB_PATH)
-  message(FATAL_ERROR "EXTERNAL_METIS_LIB_PATH must be set if EXTERNAL_METIS_PATH is set")
+  find_package(METIS REQUIRED)
+  if (METIS_FOUND)
+    target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
+    target_link_libraries(dgl ${METIS_LIBRARY})
+  else()
+    message(FATAL_ERROR "Failed to find METIS library")
   endif()
-  message(STATUS "looking for METIS library in ${EXTERNAL_METIS_LIB_PATH}")
-  find_package(METIS
-    REQUIRED
-    HINTS ${EXTERNAL_METIS_LIB_PATH}
-  )
-  if(NOT METIS_FOUND)
-      message(FATAL_ERROR "Failed to find METIS library")
-  endif()
-  list(APPEND DGL_LINKER_LIBS METIS::METIS)
 else(EXTERNAL_METIS_PATH)
   target_include_directories(dgl PRIVATE "third_party/METIS/include")
   # Compile METIS
