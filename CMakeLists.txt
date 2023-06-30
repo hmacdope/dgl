@@ -58,6 +58,8 @@ if (EXTERNAL_DLPACK_PATH OR EXTERNAL_DMLC_PATH OR EXTERNAL_NANOFLANN_PATH OR EXT
 endif()
 
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
 # Set debug compile option for gdb, only happens when -DCMAKE_BUILD_TYPE=DEBUG
 if (NOT MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb")
@@ -279,11 +281,12 @@ endif()
 
 if (EXTERNAL_METIS_PATH)
   find_package(METIS REQUIRED)
-  if (METIS_FOUND)
-    target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
-    target_link_libraries(dgl ${METIS_LIBRARY})
-  else()
+  if (NOT METIS_FOUND)
     message(FATAL_ERROR "Failed to find METIS library")
+  else()
+    message(STATUS "Found METIS library")
+    target_include_directories(dgl SYSTEM PUBLIC ${METIS_INCLUDE_DIRS})
+    list(APPEND DGL_LINKER_LIBS ${METIS_LIBRARY})
   endif()
 else(EXTERNAL_METIS_PATH)
   target_include_directories(dgl PRIVATE "third_party/METIS/include")
