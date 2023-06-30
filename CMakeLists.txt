@@ -44,6 +44,7 @@ dgl_option(EXTERNAL_DMLC_LIB_PATH "Path to external dmlc-core library" OFF)
 dgl_option(EXTERNAL_PHMAP_PATH "Path to external parallel-hashmap" OFF)
 dgl_option(EXTERNAL_NANOFLANN_PATH "Path to use external nanoflann" OFF)
 dgl_option(EXTERNAL_METIS_PATH "Path to external metis" OFF)
+dgl_option(EXTERNAL_METIS_LIB_PATH "Path to external metis library" OFF)
 dgl_option(EXTERNAL_GKLIB_PATH "Path to external gklib" OFF)
 
 if (EXTERNAL_DLPACK_PATH OR EXTERNAL_DMLC_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_NANOFLANN_PATH OR EXTERNAL_METIS_PATH OR EXTERNAL_GKLIB_PATH)
@@ -279,22 +280,29 @@ endif()
 
 
 if (EXTERNAL_METIS_PATH)
-  if(NOT EXTERNAL_GKLIB_PATH)
-    message(FATAL_ERROR "EXTERNAL_GKLIB_PATH must be set if EXTERNAL_METIS_PATH is set")
-  endif()
-  # TODO fix this and add GKLib
   include_directories(SYSTEM ${EXTERNAL_METIS_PATH})
-  
-  else(EXTERNAL_METIS_PATH)
-    target_include_directories(dgl PRIVATE "third_party/METIS/include")
-    # Compile METIS
-    if(NOT MSVC)
-      set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
-      include(${GKLIB_PATH}/GKlibSystem.cmake)
-      include_directories(${GKLIB_PATH})
-      include_directories("third_party/METIS/include/")
-      add_subdirectory("third_party/METIS/libmetis/")
-      list(APPEND DGL_LINKER_LIBS metis)
+  if (NOT EXTERNAL_METIS_LIB_PATH)
+  message(FATAL_ERROR "EXTERNAL_METIS_LIB_PATH must be set if EXTERNAL_METIS_PATH is set")
+  endif()
+  message(STATUS "looking for METIS library in ${EXTERNAL_METIS_LIB_PATH}")
+  find_package(METIS
+    REQUIRED
+    HINTS ${EXTERNAL_METIS_LIB_PATH}
+  )
+  if(NOT METIS_FOUND)
+      message(FATAL_ERROR "Failed to find METIS library")
+  endif()
+  list(APPEND DGL_LINKER_LIBS METIS::METIS)
+else(EXTERNAL_METIS_PATH)
+  target_include_directories(dgl PRIVATE "third_party/METIS/include")
+  # Compile METIS
+  if(NOT MSVC)
+    set(GKLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/METIS/GKlib")
+    include(${GKLIB_PATH}/GKlibSystem.cmake)
+    include_directories(${GKLIB_PATH})
+    include_directories("third_party/METIS/include/")
+    add_subdirectory("third_party/METIS/libmetis/")
+    list(APPEND DGL_LINKER_LIBS metis)
     endif(NOT MSVC)
 endif(EXTERNAL_METIS_PATH)
 
